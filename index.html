@@ -1,0 +1,2093 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JACKO x POKE-MATH - מסע החשבון של לביא</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    body { font-family: 'Rubik', sans-serif; background:#060816; color:#e2e8f0; min-height:100vh; overflow-x:hidden; user-select:none; }
+    .app-container { direction: rtl; max-width: 1100px; margin: 0 auto; }
+
+    .view-transition { animation: fadeSlide .45s cubic-bezier(0.16, 1, 0.3, 1); }
+    @keyframes fadeSlide { from { opacity:0; transform: translateY(12px) scale(0.985); } to { opacity:1; transform: translateY(0) scale(1); } }
+
+    body.aurora {
+      background: 
+        radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.18), transparent 55%),
+        radial-gradient(circle at 80% 40%, rgba(236, 72, 153, 0.14), transparent 55%),
+        radial-gradient(circle at 50% 85%, rgba(16, 185, 129, 0.14), transparent 55%),
+        linear-gradient(180deg, #050814, #0b1028);
+    }
+
+    .chip { background: rgba(30,41,59,0.9); border: 1px solid rgba(255,255,255,0.16); padding: 10px 16px; border-radius: 14px; font-weight: 800; cursor: pointer; transition: .15s; }
+    .chip:hover { transform: translateY(-2px); border-color: rgba(239, 68, 68, 0.75); background: rgba(239,68,68,0.12); }
+
+    .card { border: 2px solid rgba(255,255,255,0.10); background: rgba(15, 23, 42, 0.70); border-radius: 22px; transition: .2s; }
+    .card:hover { transform: translateY(-4px); border-color: rgba(244, 114, 182, 0.70); box-shadow: 0 14px 30px rgba(0,0,0,0.55); }
+
+    .btn-primary { background: linear-gradient(90deg, #ef4444, #f97316); color:#fff; font-weight: 900; border-radius: 18px; padding: 14px 18px; transition: .15s; }
+    .btn-primary:hover { transform: translateY(-2px); filter: brightness(1.08); }
+
+    .btn-ghost { background: rgba(30,41,59,0.7); border:1px solid rgba(148,163,184,0.25); color:#e2e8f0; border-radius: 16px; padding: 10px 12px; font-weight: 800; transition: .15s; }
+    .btn-ghost:hover { transform: translateY(-2px); border-color: rgba(239,68,68,0.55); }
+
+    .map-node { 
+      width: 82px; height: 82px; border-radius: 999px; 
+      background: #0f172a; border: 4px solid rgba(148,163,184,0.35); 
+      display:flex; align-items:center; justify-content:center;
+      font-size: 34px; transition: .25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative; z-index: 10;
+    }
+    .map-node.current { border-color:#ef4444; background:#7f1d1d; transform: scale(1.12); box-shadow: 0 0 26px rgba(239,68,68,0.45); cursor:pointer; animation: pulseNode 2s infinite; }
+    .map-node.completed { border-color:#10b981; background:#064e3b; color:#10b981; }
+    .map-node.locked { opacity: .35; filter: grayscale(1); cursor: not-allowed; }
+
+    @keyframes pulseNode { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.65); } 70% { box-shadow: 0 0 0 20px rgba(239,68,68,0); } 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } }
+
+    .connector { position:absolute; width: 6px; height: 64px; background: rgba(51,65,85,0.75); left: 50%; transform: translateX(-50%); top: -64px; z-index: 0; border-radius: 6px; }
+    .connector.active { background: rgba(239,68,68,0.75); box-shadow: 0 0 12px rgba(239,68,68,0.35); }
+
+    .tag { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 900; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(148,163,184,0.25); background: rgba(2,6,23,0.55); color: rgba(226,232,240,0.85); }
+
+    .shake { animation: shake .35s; }
+    @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+
+    .glow-good { text-shadow: 0 0 18px rgba(16,185,129,0.65); }
+    .glow-bad  { text-shadow: 0 0 18px rgba(239,68,68,0.65); }
+
+    ::-webkit-scrollbar{ width:6px; }
+    ::-webkit-scrollbar-track{ background:#0b122a; }
+    ::-webkit-scrollbar-thumb{ background:#334155; border-radius:3px; }
+  </style>
+</head>
+
+<body class="aurora text-slate-200">
+  <div id="app-root" class="relative min-h-screen flex flex-col pb-safe">
+    
+    <!-- HUD -->
+    <header class="bg-slate-900/85 backdrop-blur-md border-b border-slate-700 sticky top-0 z-50 p-4 shadow-2xl">
+      <div class="app-container flex justify-between items-center gap-4">
+        
+        <div class="flex items-center gap-4 min-w-[260px]">
+          <button class="relative group" onclick="PokeMath.showProfile()">
+            <div class="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-600 flex items-center justify-center shadow-lg">
+              <div id="hud-starter-icon" class="text-3xl">🧩</div>
+            </div>
+            <div class="absolute -bottom-2 -right-2 bg-slate-900 text-[10px] font-black px-2 py-0.5 rounded-full border border-slate-600">
+              <span id="hud-level">LV 1</span>
+            </div>
+          </button>
+
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center justify-between text-xs font-black text-slate-400">
+              <span>כוח (HP)</span>
+              <span id="hud-hp-text" class="text-white">100/100</span>
+            </div>
+            <div class="w-44 h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700 shadow-inner">
+              <div id="hud-hp-bar" class="h-full bg-gradient-to-r from-red-600 to-orange-500 transition-all duration-300" style="width:100%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <div class="text-right">
+            <div class="text-[10px] text-slate-500 uppercase font-black tracking-wider">XP</div>
+            <div class="text-xl font-black text-cyan-300 flex items-center gap-1">
+              <span id="hud-xp">0</span> ✨
+            </div>
+          </div>
+
+          <div class="text-right">
+            <div class="text-[10px] text-slate-500 uppercase font-black tracking-wider">מטבעות</div>
+            <div class="text-xl font-black text-yellow-300 flex items-center gap-1">
+              <span id="hud-coins">0</span> 🪙
+            </div>
+          </div>
+
+          <div class="text-right">
+            <div class="text-[10px] text-slate-500 uppercase font-black tracking-wider">כדורים</div>
+            <div class="text-xl font-black text-emerald-300 flex items-center gap-1">
+              <span id="hud-balls">3</span> 🟠
+            </div>
+          </div>
+
+          <div class="text-right">
+            <div class="text-[10px] text-slate-500 uppercase font-black tracking-wider">שיקויים</div>
+            <div class="text-xl font-black text-pink-300 flex items-center gap-1">
+              <span id="hud-potions">2</span> 🧪
+            </div>
+          </div>
+
+          <button onclick="PokeMath.toggleSettings()" class="btn-ghost">⚙️</button>
+        </div>
+
+      </div>
+    </header>
+
+    <main id="main-view" class="flex-1 app-container w-full p-4 relative"></main>
+  </div>
+
+  <!-- MODALS -->
+  <div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/90 backdrop-blur-md view-transition">
+    <div class="w-full max-w-2xl bg-slate-900 border border-slate-600 rounded-3xl shadow-2xl overflow-hidden relative">
+      <button onclick="PokeMath.closeModal()" class="absolute top-4 left-4 bg-black/50 hover:bg-black/70 text-white w-10 h-10 rounded-full flex items-center justify-center">✕</button>
+      <div class="p-6 border-b border-slate-700 bg-gradient-to-r from-slate-900 to-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="text-3xl" id="modal-icon">📜</div>
+          <div>
+            <div class="tag inline-block mb-2" id="modal-tag">הודעה</div>
+            <div class="text-2xl font-black text-white" id="modal-title">כותרת</div>
+          </div>
+        </div>
+      </div>
+      <div class="p-6">
+        <div id="modal-body" class="text-slate-200 leading-relaxed"></div>
+        <div class="mt-6 flex gap-3 justify-end" id="modal-actions"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEMPLATES -->
+  <template id="tpl-home">
+    <div class="view-transition grid grid-cols-1 lg:grid-cols-3 gap-6 py-6">
+      <div class="lg:col-span-2 card p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-pink-300 mb-2">
+              Poke-Math עם ג'אקו
+            </h1>
+            <p class="text-slate-400 text-lg">
+              מסע מתמטיקה לכיתה ב - חיבור וחיסור עד 100, עשרות ומאות, לוח הכפל, וסדר מספרים.
+            </p>
+          </div>
+          <div class="text-6xl">⚡</div>
+        </div>
+
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button onclick="PokeMath.showStarterSelect()" class="btn-primary">
+            🎒 בחירת פוקימון התחלתי
+          </button>
+          <button onclick="PokeMath.showMap()" class="btn-ghost">
+            🗺️ המשך מסע
+          </button>
+          <button onclick="PokeMath.showPokedex()" class="btn-ghost">
+            📘 פוקידקס
+          </button>
+          <button onclick="PokeMath.showShop()" class="btn-ghost">
+            🛒 חנות ג'אקו
+          </button>
+        </div>
+
+        <div class="mt-6 bg-slate-800/50 border border-slate-700 rounded-2xl p-5">
+          <div class="flex items-center justify-between">
+            <div class="font-black text-white text-xl">מטרת היום</div>
+            <div class="tag">ללא לחץ</div>
+          </div>
+          <div class="mt-2 text-slate-300">
+            שחקו 1-2 שלבים בלבד. המטרה היא רצף נכון, לא מהירות.
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-6">
+        <div class="flex items-center justify-between">
+          <div class="text-2xl font-black text-white">סטטוס</div>
+          <div class="tag">כיתה ב</div>
+        </div>
+
+        <div class="mt-5 space-y-4">
+          <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-4">
+            <div class="text-slate-400 text-xs font-black uppercase tracking-wider">התקדמות</div>
+            <div class="mt-1 text-white font-black text-xl" id="home-progress">שלב 1 מתוך 20</div>
+          </div>
+          
+          <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-4">
+            <div class="text-slate-400 text-xs font-black uppercase tracking-wider">קומבו נוכחי</div>
+            <div class="mt-1 text-white font-black text-xl"><span id="home-combo">0</span> 🔥</div>
+          </div>
+
+          <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-4">
+            <div class="text-slate-400 text-xs font-black uppercase tracking-wider">המלצה חכמה</div>
+            <div class="mt-2 text-slate-200" id="home-tip">טיפ יופיע כאן</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-starter">
+    <div class="view-transition py-8">
+      <div class="text-center mb-8">
+        <h2 class="text-4xl font-black text-white">בחר פוקימון התחלתי</h2>
+        <p class="text-slate-400 text-lg mt-2">כל פוקימון נותן בונוס קטן ומלמד סגנון פתרון אחר.</p>
+      </div>
+      
+      <div id="starter-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+      
+      <div class="mt-8 flex items-center justify-center gap-3">
+        <button onclick="PokeMath.showHome()" class="btn-ghost">חזרה</button>
+        <button id="starter-confirm" disabled class="btn-primary opacity-50 cursor-not-allowed">התחל מסע 🚀</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-map">
+    <div class="view-transition max-w-xl mx-auto text-center pt-8 pb-24">
+      <div class="mb-8 card p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="tag inline-block mb-2">מסע 20 שלבים</div>
+            <h2 class="text-3xl font-black text-white" id="map-title">מפת המסע</h2>
+            <p class="text-slate-400 mt-2" id="map-subtitle">התקדם שלב שלב. תופסים פוקימונים בדרך.</p>
+          </div>
+          <div class="text-5xl" id="map-starter-icon">🧩</div>
+        </div>
+      </div>
+
+      <div id="map-nodes" class="flex flex-col items-center relative gap-4"></div>
+
+      <div class="fixed bottom-8 left-0 right-0 text-center pointer-events-none z-20">
+        <div class="pointer-events-auto inline-flex gap-3">
+          <button onclick="PokeMath.showHome()" class="btn-ghost">🏠 בית</button>
+          <button onclick="PokeMath.showPokedex()" class="btn-ghost">📘 פוקידקס</button>
+          <button onclick="PokeMath.usePotionFromMap()" class="btn-ghost">🧪 שיקוי</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-game">
+    <div class="view-transition flex flex-col h-full max-w-3xl mx-auto py-4">
+      <div class="flex justify-between items-center mb-6 px-2">
+        <button onclick="PokeMath.showMap()" class="btn-ghost text-sm">➜ יציאה למפה</button>
+        <div class="text-slate-400 text-xs font-black uppercase tracking-widest" id="game-stage-indicator">שלב 1/20</div>
+      </div>
+
+      <div id="boss-hud" class="hidden mb-6 card p-5 border border-red-500/30 relative overflow-hidden">
+        <div class="absolute inset-0 bg-red-600/6"></div>
+        <div class="relative">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">👑</span>
+              <span class="text-red-300 font-black text-xl tracking-wide">BOSS</span>
+            </div>
+            <div class="text-white font-black" id="boss-name">בוס</div>
+          </div>
+          <div class="h-6 bg-slate-950 rounded-full overflow-hidden border border-slate-700 shadow-inner">
+            <div id="boss-bar" class="h-full bg-gradient-to-r from-red-600 to-red-500 transition-all duration-300" style="width:100%"></div>
+          </div>
+          <div class="mt-2 text-xs text-yellow-200 font-black" id="boss-mechanic">מכאניקה: ...</div>
+        </div>
+      </div>
+
+      <div class="card p-5 mb-6">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="tag inline-block mb-2" id="game-skill-tag">חיבור</div>
+            <div class="text-2xl font-black text-white" id="game-objective">מטרה</div>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="PokeMath.usePotion()" class="btn-ghost">🧪 שיקוי</button>
+            <button onclick="PokeMath.useHint()" class="btn-ghost">💡 רמז</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="game-content" class="flex-1 flex flex-col items-center justify-center min-h-[420px] w-full"></div>
+
+      <div class="mt-6 text-center h-24 flex flex-col justify-end">
+        <div id="feedback" class="text-3xl font-black transition-all duration-200"></div>
+        <div class="text-xs text-slate-500 mt-2" id="micro-tip">טיפ: אם יש מעבר עשר, תפרק לעשרות ויחידות.</div>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-reward">
+    <div class="view-transition max-w-2xl mx-auto pt-10 text-center">
+      <div class="text-7xl mb-4">🎁</div>
+      <h2 class="text-4xl font-black text-white mb-2">ניצחון בשלב!</h2>
+      <p class="text-slate-400 mb-8" id="reward-summary">בחר פרס אחד</p>
+
+      <div id="reward-options" class="grid gap-4"></div>
+      
+      <div class="mt-8">
+        <button onclick="PokeMath.showMap()" class="btn-ghost">חזרה למפה</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-capture">
+    <div class="view-transition max-w-3xl mx-auto pt-10 text-center">
+      <div class="text-6xl mb-3">🟠</div>
+      <h2 class="text-4xl font-black text-white mb-2">תפיסת פוקימון!</h2>
+      <p class="text-slate-400 mb-8">כדי לתפוס - צריך רצף נכון של תשובות.</p>
+
+      <div class="card p-6 mb-6">
+        <div class="flex items-center justify-between">
+          <div class="text-right">
+            <div class="tag inline-block mb-2" id="cap-type">טיפוס</div>
+            <div class="text-3xl font-black text-white" id="cap-name">שם</div>
+            <div class="text-slate-300 mt-2" id="cap-desc">תיאור</div>
+          </div>
+          <div class="text-7xl" id="cap-icon">🐾</div>
+        </div>
+
+        <div class="mt-5 flex items-center justify-center gap-3 text-slate-300 font-black">
+          <div class="bg-slate-800/60 border border-slate-700 rounded-2xl px-4 py-3">
+            רצף נדרש: <span id="cap-needed" class="text-white">3</span>
+          </div>
+          <div class="bg-slate-800/60 border border-slate-700 rounded-2xl px-4 py-3">
+            רצף נוכחי: <span id="cap-streak" class="text-white">0</span>
+          </div>
+          <div class="bg-slate-800/60 border border-slate-700 rounded-2xl px-4 py-3">
+            כדורים: <span id="cap-balls" class="text-white">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="cap-game" class="card p-6"></div>
+      
+      <div class="mt-6 flex justify-center gap-3">
+        <button onclick="PokeMath.skipCapture()" class="btn-ghost">דלג</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-pokedex">
+    <div class="view-transition py-8">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-3xl font-black text-white">פוקידקס</h2>
+          <p class="text-slate-400">הפוקימונים שתפסת והבונוסים שלהם.</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="PokeMath.showHome()" class="btn-ghost">🏠</button>
+          <button onclick="PokeMath.showMap()" class="btn-ghost">🗺️</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="pokedex-grid"></div>
+    </div>
+  </template>
+
+  <template id="tpl-shop">
+    <div class="view-transition py-8 max-w-3xl mx-auto">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-3xl font-black text-white">חנות ג'אקו</h2>
+          <p class="text-slate-400">קונים עזרה חכמה - בלי להרוס את הלמידה.</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="PokeMath.showHome()" class="btn-ghost">🏠</button>
+          <button onclick="PokeMath.showMap()" class="btn-ghost">🗺️</button>
+        </div>
+      </div>
+
+      <div class="card p-6 mb-4">
+        <div class="flex items-center justify-between">
+          <div class="text-slate-300 font-black">יתרה</div>
+          <div class="text-2xl font-black text-yellow-300"><span id="shop-coins">0</span> 🪙</div>
+        </div>
+      </div>
+
+      <div class="grid gap-4">
+        <div class="card p-5 flex items-center justify-between">
+          <div class="text-right">
+            <div class="text-xl font-black text-white">🧪 שיקוי</div>
+            <div class="text-slate-400">מחזיר 25 כוח. מומלץ אחרי טעות קשה.</div>
+          </div>
+          <button class="btn-primary" onclick="PokeMath.buy('potion')">קנה - 30 🪙</button>
+        </div>
+
+        <div class="card p-5 flex items-center justify-between">
+          <div class="text-right">
+            <div class="text-xl font-black text-white">🟠 כדור</div>
+            <div class="text-slate-400">לתפיסת פוקימונים. רצף נכון קובע.</div>
+          </div>
+          <button class="btn-primary" onclick="PokeMath.buy('ball')">קנה - 20 🪙</button>
+        </div>
+
+        <div class="card p-5 flex items-center justify-between">
+          <div class="text-right">
+            <div class="text-xl font-black text-white">💡 רמז חכם</div>
+            <div class="text-slate-400">מוסיף רמז אחד לשלב הבא בלבד.</div>
+          </div>
+          <button class="btn-primary" onclick="PokeMath.buy('hint')">קנה - 25 🪙</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-victory">
+    <div class="view-transition flex flex-col items-center justify-center min-h-[80vh] text-center px-4">
+      <div class="text-8xl mb-6">🏆</div>
+      <h2 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-100 mb-4">מסע הושלם!</h2>
+      <p class="text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed mb-10">
+        כל הכבוד לבביא! ג'אקו גאה בך. עכשיו אתה חזק במתמטיקה כמו מאמן פוקימונים אמיתי.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl mb-10">
+        <div class="card p-6">
+          <div class="text-slate-400 text-xs font-black uppercase tracking-wider">XP</div>
+          <div class="text-4xl font-black text-cyan-300 mt-2" id="end-xp">0</div>
+        </div>
+        <div class="card p-6">
+          <div class="text-slate-400 text-xs font-black uppercase tracking-wider">מטבעות</div>
+          <div class="text-4xl font-black text-yellow-300 mt-2" id="end-coins">0</div>
+        </div>
+        <div class="card p-6">
+          <div class="text-slate-400 text-xs font-black uppercase tracking-wider">פוקימונים</div>
+          <div class="text-4xl font-black text-emerald-300 mt-2" id="end-mon">0</div>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <button class="btn-ghost" onclick="PokeMath.showPokedex()">📘 פוקידקס</button>
+        <button class="btn-primary" onclick="PokeMath.resetAll()">🔁 התחל מחדש</button>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    // -----------------------------
+    // DATA
+    // -----------------------------
+    const TYPES = {
+      add:   { name: "חיבור", icon:"🔥", micro:"טיפ: תפרק לעשרות ויחידות. 38+7 = 38+2+5." },
+      sub:   { name: "חיסור", icon:"💧", micro:"טיפ: אם קשה, תפרק: 52-8 = 52-2-6." },
+      place: { name: "עשרות ומאות", icon:"🪨", micro:"טיפ: 4 עשרות = 40. 3 מאות = 300." },
+      order: { name: "סדר מספרים", icon:"🌿", micro:"טיפ: תסתכל על עשרות קודם, ואז יחידות." },
+      mult:  { name: "לוח כפל", icon:"⚡", micro:"טיפ: 5 כפול זה תמיד מסתיים ב-0 או 5." },
+      word:  { name: "בעיות מילוליות", icon:"🧠", micro:"טיפ: סמן מה יש, מה מצטרף או מה יורד." }
+    };
+
+    // Pokemon-like creatures (original, emoji-based)
+    // starterId controls passive bonus
+    const MONS = [
+      { 
+        id:"sparkit", 
+        name:"ספארקיט", 
+        type:"mult", 
+        icon:"⚡🐱", 
+        desc:"אוהב דפוסים. פעם בשלב נותן רמז קרוב לתוצאה.",
+        bonus:{ kind:"approx", value:1 },
+        evo:{ atXp: 180, to:"sparkat" }
+      },
+      {
+        id:"sparkat",
+        name:"ספארקאט",
+        type:"mult",
+        icon:"⚡🦁",
+        desc:"מכפיל מהר. פעם בשלב מוסיף בדיקת היגיון: 'סביב כמה זה?'.",
+        bonus:{ kind:"approx", value:2 },
+        evo:null
+      },
+      { 
+        id:"aqualip", 
+        name:"אקווה-ליפ", 
+        type:"sub", 
+        icon:"💧🐟", 
+        desc:"מגן טעויות. טעות אחת בשלב לא מורידה HP.",
+        bonus:{ kind:"noHpOnce", value:1 },
+        evo:{ atXp: 180, to:"aquashark" }
+      },
+      {
+        id:"aquashark",
+        name:"אקווה-שארק",
+        type:"sub",
+        icon:"💧🦈",
+        desc:"שומר קור רוח. מוריד חצי נזק מטעות פעם אחת בשלב.",
+        bonus:{ kind:"halfDamageOnce", value:1 },
+        evo:null
+      },
+      { 
+        id:"emberbun", 
+        name:"אמבר-באן", 
+        type:"add", 
+        icon:"🔥🐰", 
+        desc:"מאמן מעבר עשר. פעם בשלב מציג פירוק מומלץ.",
+        bonus:{ kind:"decomposeHint", value:1 },
+        evo:{ atXp: 180, to:"emberhare" }
+      },
+      {
+        id:"emberhare",
+        name:"אמבר-הר",
+        type:"add",
+        icon:"🔥🐇",
+        desc:"מוסיף קצב. נותן +10 XP בכל שלב אם אין יותר מ-1 טעות.",
+        bonus:{ kind:"xpBonusIfClean", value:10 },
+        evo:null
+      },
+      {
+        id:"stoneling",
+        name:"סטון-לינג",
+        type:"place",
+        icon:"🪨🐢",
+        desc:"מבין עשרות ומאות. פעם בשלב מדגיש ספרות עם צבע.",
+        bonus:{ kind:"highlightDigits", value:1 },
+        evo:{ atXp: 180, to:"stonetron" }
+      },
+      {
+        id:"stonetron",
+        name:"סטון-טרון",
+        type:"place",
+        icon:"🪨🦕",
+        desc:"בונה מספרים. פעם בשלב נותן בחירה בין 2 תשובות בלבד.",
+        bonus:{ kind:"twoChoiceOnce", value:1 },
+        evo:null
+      },
+      {
+        id:"leaflet",
+        name:"ליפלט",
+        type:"order",
+        icon:"🌿🦊",
+        desc:"מסדר מספרים. פעם בשלב מציע טבלת עשרות קצרה.",
+        bonus:{ kind:"tensTableOnce", value:1 },
+        evo:{ atXp: 180, to:"leaflord" }
+      },
+      {
+        id:"leaflord",
+        name:"ליפלורד",
+        type:"order",
+        icon:"🌿🦉",
+        desc:"מזהה מהר. פעם בשלב מראה ציר מספרים קטן.",
+        bonus:{ kind:"numberLineOnce", value:1 },
+        evo:null
+      },
+      {
+        id:"mindmote",
+        name:"מיינד-מוט",
+        type:"word",
+        icon:"🧠🐭",
+        desc:"מבין סיפורים. פעם בשלב מדגיש את 'מה שואלים'.",
+        bonus:{ kind:"underlineAskOnce", value:1 },
+        evo:{ atXp: 180, to:"mindmaster" }
+      },
+      {
+        id:"mindmaster",
+        name:"מיינד-מאסטר",
+        type:"word",
+        icon:"🧠🦊",
+        desc:"קורא כמו בלש. נותן +1 רמז חינמי בבוס.",
+        bonus:{ kind:"freeBossHint", value:1 },
+        evo:null
+      }
+    ];
+
+    const STARTERS = ["emberbun","aqualip","sparkit"]; // for variety
+
+    // 20 stages progression
+    // skillFocus drives generator and capture targets
+    const STAGES = [
+      { idx:1,  type:"normal", skill:"add",   title:"חיבור קל עד 20", objective:"חבר מספרים בלי מעבר עשר.", difficulty:{ max:20, carry:false }, boss:null, capture:"emberbun" },
+      { idx:2,  type:"normal", skill:"sub",   title:"חיסור קל עד 20", objective:"חסר מספרים בלי פירוק.", difficulty:{ max:20, borrow:false }, boss:null, capture:"aqualip" },
+      { idx:3,  type:"normal", skill:"place", title:"עשרות", objective:"זהה עשרות והמר אותן למספר.", difficulty:{ range:[10,99], mode:"tens" }, boss:null, capture:"stoneling" },
+      { idx:4,  type:"normal", skill:"order", title:"סדר מספרים", objective:"בחר מה גדול יותר ומה קטן יותר.", difficulty:{ max:100 }, boss:null, capture:"leaflet" },
+      
+      { idx:5,  type:"boss",   skill:"add",   title:"בוס: שד המעבר עשר", objective:"חיבור עם מעבר עשר עד 50.", difficulty:{ max:50, carry:true }, boss:{ hp:120, mech:"מבלבל תשובות", id:"trick" }, capture:null },
+
+      { idx:6,  type:"normal", skill:"add",   title:"חיבור עד 100", objective:"חיבור דו ספרתי בלי מעבר עשר.", difficulty:{ max:100, carry:false }, boss:null, capture:null },
+      { idx:7,  type:"normal", skill:"sub",   title:"חיסור עד 100", objective:"חיסור דו ספרתי בלי פירוק.", difficulty:{ max:100, borrow:false }, boss:null, capture:null },
+      { idx:8,  type:"normal", skill:"add",   title:"תרגילי מעבר עשר", objective:"חיבור עם מעבר עשר.", difficulty:{ max:100, carry:true }, boss:null, capture:null },
+      { idx:9,  type:"normal", skill:"sub",   title:"פירוק בחיסור", objective:"חיסור עם פירוק בעשרות.", difficulty:{ max:100, borrow:true }, boss:null, capture:null },
+
+      { idx:10, type:"boss",   skill:"sub",   title:"בוס: שד הפירוק", objective:"חיסור עם פירוק עד 100.", difficulty:{ max:100, borrow:true }, boss:{ hp:130, mech:"נזק גבוה בטעות", id:"hardhit" }, capture:null },
+
+      { idx:11, type:"normal", skill:"mult",  title:"כפל - 2,5,10", objective:"לוח הכפל הבסיסי.", difficulty:{ tables:[2,5,10], maxMul:10 }, boss:null, capture:"sparkit" },
+      { idx:12, type:"normal", skill:"mult",  title:"כפל - 3,4", objective:"לוח הכפל 3 ו-4.", difficulty:{ tables:[3,4], maxMul:10 }, boss:null, capture:null },
+      { idx:13, type:"normal", skill:"place", title:"מאות", objective:"בנה מספרים מעשרות ומאות.", difficulty:{ range:[100,399], mode:"hundreds" }, boss:null, capture:null },
+      { idx:14, type:"normal", skill:"order", title:"סדר ותבניות", objective:"מצא מספר חסר בסדרה.", difficulty:{ max:100, patterns:true }, boss:null, capture:null },
+
+      { idx:15, type:"boss",   skill:"mult",  title:"בוס: שד הדפוסים", objective:"כפל מגוון + בדיקת היגיון.", difficulty:{ tables:[2,3,4,5,10], maxMul:10 }, boss:{ hp:140, mech:"מציע תשובות דומות", id:"similar" }, capture:null },
+
+      { idx:16, type:"normal", skill:"word",  title:"סיפורי חיבור", objective:"בעיות מילוליות קצרות - חיבור.", difficulty:{ kind:"add", max:50 }, boss:null, capture:"mindmote" },
+      { idx:17, type:"normal", skill:"word",  title:"סיפורי חיסור", objective:"בעיות מילוליות קצרות - חיסור.", difficulty:{ kind:"sub", max:50 }, boss:null, capture:null },
+      { idx:18, type:"normal", skill:"mixed", title:"מעורב", objective:"תערובת: חיבור, חיסור, עשרות.", difficulty:{ max:100 }, boss:null, capture:null },
+      { idx:19, type:"normal", skill:"mixed", title:"מבחן מאמן", objective:"תערובת: כפל בסיסי + סדר.", difficulty:{ max:100, tables:[2,5,10] }, boss:null, capture:null },
+
+      { idx:20, type:"boss",   skill:"mixed", title:"בוס סופי: המלך של המספרים", objective:"מעורב - הכי חכם, לא הכי מהיר.", difficulty:{ max:100, tables:[2,3,4,5,10], carry:true, borrow:true }, boss:{ hp:170, mech:"טיימר עדין + בלבול", id:"final" }, capture:null }
+    ];
+
+    // -----------------------------
+    // STATE
+    // -----------------------------
+    const SAVE_KEY = "poke_math_jacko_v1";
+
+    let state = {
+      starterId: null,
+      levelIdx: 0,      // 0-based index in STAGES
+      hp: 100,
+      maxHp: 100,
+      xp: 0,
+      coins: 60,
+      balls: 3,
+      potions: 2,
+      combo: 0,
+      hints: 0,        // purchased hints for next stage
+      pokedex: [],     // list of mon ids caught
+      monXp: {},       // monId -> xp
+      perStageFlags: {} // stage runtime flags (e.g., noHpOnce)
+    };
+
+    // runtime
+    let currentStage = null;
+    let qQueue = [];
+    let qIndex = 0;
+    let mistakes = 0;
+    let bossHp = 0;
+    let bossMaxHp = 0;
+    let bossTimer = null;
+
+    // capture runtime
+    let capture = null;
+
+    // -----------------------------
+    // UTIL
+    // -----------------------------
+    const rnd = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+    const shuffle = (arr) => arr.map(v=>({v, s:Math.random()})).sort((a,b)=>a.s-b.s).map(x=>x.v);
+
+    const clamp = (x,a,b)=>Math.max(a, Math.min(b, x));
+
+    const monById = (id) => MONS.find(m=>m.id===id);
+
+    const starterMon = () => state.starterId ? monById(state.starterId) : null;
+
+    function save() {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    }
+    function load() {
+      const s = localStorage.getItem(SAVE_KEY);
+      if (s) {
+        try { state = JSON.parse(s); } catch {}
+      }
+    }
+
+    function confettiBurst() {
+      confetti({ particleCount: 140, spread: 85, origin: { y: 0.7 } });
+    }
+
+    function setBodyShake() {
+      document.body.classList.add("shake");
+      setTimeout(()=>document.body.classList.remove("shake"), 350);
+    }
+
+    function setHUD() {
+      const icon = document.getElementById("hud-starter-icon");
+      const lvl = document.getElementById("hud-level");
+      const hpText = document.getElementById("hud-hp-text");
+      const hpBar = document.getElementById("hud-hp-bar");
+      const xp = document.getElementById("hud-xp");
+      const coins = document.getElementById("hud-coins");
+      const balls = document.getElementById("hud-balls");
+      const potions = document.getElementById("hud-potions");
+
+      if (icon) icon.textContent = starterMon() ? starterMon().icon : "🧩";
+      if (lvl) lvl.textContent = `LV ${Math.max(1, Math.floor(state.xp / 120) + 1)}`;
+      if (hpText) hpText.textContent = `${clamp(state.hp,0,state.maxHp)}/${state.maxHp}`;
+      if (hpBar) hpBar.style.width = `${(clamp(state.hp,0,state.maxHp)/state.maxHp)*100}%`;
+      if (xp) xp.textContent = state.xp;
+      if (coins) coins.textContent = state.coins;
+      if (balls) balls.textContent = state.balls;
+      if (potions) potions.textContent = state.potions;
+    }
+
+    function showTemplate(id) {
+      const tpl = document.getElementById(id);
+      const main = document.getElementById("main-view");
+      main.innerHTML = "";
+      main.appendChild(tpl.content.cloneNode(true));
+    }
+
+    function openModal({ icon="📜", tag="הודעה", title="כותרת", body="", actions=[] }) {
+      const modal = document.getElementById("modal");
+      document.getElementById("modal-icon").textContent = icon;
+      document.getElementById("modal-tag").textContent = tag;
+      document.getElementById("modal-title").textContent = title;
+      document.getElementById("modal-body").innerHTML = body;
+      const actionsBox = document.getElementById("modal-actions");
+      actionsBox.innerHTML = "";
+      actions.forEach(a=>{
+        const btn = document.createElement("button");
+        btn.className = a.primary ? "btn-primary" : "btn-ghost";
+        btn.textContent = a.label;
+        btn.onclick = () => { if (a.onClick) a.onClick(); };
+        actionsBox.appendChild(btn);
+      });
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeModal() {
+      const modal = document.getElementById("modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function stageIndexSafe() {
+      return clamp(state.levelIdx, 0, STAGES.length-1);
+    }
+
+    function stageIsBoss(st) {
+      return st && st.type === "boss";
+    }
+
+    function addXP(amount) {
+      state.xp += amount;
+      // evolution check for caught mons + starter
+      const owned = new Set([state.starterId, ...state.pokedex].filter(Boolean));
+      owned.forEach(id=>{
+        if (!id) return;
+        state.monXp[id] = (state.monXp[id] || 0) + Math.floor(amount/2);
+        const m = monById(id);
+        if (m && m.evo && state.monXp[id] >= m.evo.atXp) {
+          // evolve if not already evolved
+          const to = m.evo.to;
+          if (to && !owned.has(to)) {
+            // evolve: replace in starter or pokedex
+            if (state.starterId === id) state.starterId = to;
+            const idx = state.pokedex.indexOf(id);
+            if (idx >= 0) state.pokedex[idx] = to;
+            // keep xp on new id
+            state.monXp[to] = Math.max(state.monXp[to] || 0, state.monXp[id] || 0);
+            openModal({
+              icon:"✨",
+              tag:"אבולוציה",
+              title:`${m.name} התפתח!`,
+              body:`<div class="text-lg text-slate-200">הפוקימון שלך הפך ל-<span class="font-black text-white">${monById(to).name}</span> ${monById(to).icon}.</div>`,
+              actions:[{ label:"יאללה!", primary:true, onClick:()=>{ closeModal(); renderCurrentViewSoft(); } }]
+            });
+          }
+        }
+      });
+    }
+
+    function renderCurrentViewSoft() {
+      // simple refresh based on what's currently shown
+      // if game view, keep it
+      // otherwise return to home
+      // (safe default)
+      const main = document.getElementById("main-view");
+      if (!main) return;
+      // try identify view by presence of unique element ids
+      if (document.getElementById("game-content")) {
+        // update hud only
+        setHUD();
+        return;
+      }
+      // fallback
+      PokeMath.showHome();
+    }
+
+    // -----------------------------
+    // QUESTION GENERATORS
+    // -----------------------------
+    function genAdd({ max=100, carry=false }) {
+      let a,b;
+      if (!carry) {
+        // try avoid carry in ones
+        a = rnd(0, max);
+        b = rnd(0, max-a);
+        // adjust to avoid carry in ones digit
+        const ao = a%10, bo = b%10;
+        if (ao + bo >= 10) {
+          const reduce = rnd(1, Math.min(bo, (ao+bo)-9));
+          b = b - reduce;
+        }
+      } else {
+        a = rnd(10, max);
+        b = rnd(10, max-a);
+        // enforce carry in ones
+        const ao = a%10;
+        const need = rnd(10-ao, 9);
+        const tens = Math.floor(b/10)*10;
+        b = tens + need;
+        if (a + b > max) {
+          // fix overflow
+          a = rnd(10, Math.max(10, max-20));
+        }
+      }
+      const ans = a + b;
+      return { 
+        kind:"mc", 
+        skill:"add", 
+        prompt:`${a} + ${b} = ?`, 
+        answer: ans, 
+        choices: genChoices(ans, 4, { spread: 8 }) 
+      };
+    }
+
+    function genSub({ max=100, borrow=false }) {
+      let a,b;
+      if (!borrow) {
+        a = rnd(0, max);
+        b = rnd(0, a);
+        // avoid borrow in ones
+        const ao = a%10, bo = b%10;
+        if (bo > ao) {
+          b = b - (bo-ao);
+        }
+      } else {
+        a = rnd(20, max);
+        b = rnd(10, a-1);
+        // enforce borrow: ones of b greater than ones of a
+        const ao = a%10;
+        const bo = rnd(ao+1, 9);
+        b = Math.floor(b/10)*10 + bo;
+        if (b >= a) b = a - 1;
+      }
+      const ans = a - b;
+      return { 
+        kind:"mc", 
+        skill:"sub", 
+        prompt:`${a} - ${b} = ?`, 
+        answer: ans, 
+        choices: genChoices(ans, 4, { spread: 8 }) 
+      };
+    }
+
+    function genPlace({ range=[10,99], mode="tens" }) {
+      if (mode === "tens") {
+        const t = rnd(Math.ceil(range[0]/10), Math.floor(range[1]/10));
+        const ask = `${t} עשרות = ?`;
+        const ans = t*10;
+        return { 
+          kind:"mc", 
+          skill:"place", 
+          prompt: ask, 
+          answer: ans, 
+          choices: genChoices(ans, 4, { spread: 30, snap10:true }) 
+        };
+      }
+      // hundreds builder
+      const h = rnd(1,3);
+      const t = rnd(0,9);
+      const u = rnd(0,9);
+      const ans = h*100 + t*10 + u;
+      const prompt = `בנה מספר: ${h} מאות, ${t} עשרות, ${u} יחידות`;
+      return { 
+        kind:"mc", 
+        skill:"place", 
+        prompt, 
+        answer: ans, 
+        choices: genChoices(ans, 4, { spread: 80 }) 
+      };
+    }
+
+    function genOrder({ max=100, patterns=false }) {
+      if (patterns && Math.random() > 0.5) {
+        const start = rnd(2, 60);
+        const step = [2,5,10][rnd(0,2)];
+        const seq = [start, start+step, start+2*step, start+3*step];
+        const missingIdx = rnd(1,2);
+        const ans = seq[missingIdx];
+        seq[missingIdx] = "___";
+        const prompt = `השלם את הסדרה: ${seq.join(" , ")}`;
+        return { 
+          kind:"mc", 
+          skill:"order", 
+          prompt, 
+          answer: ans, 
+          choices: shuffle([ans, ans+step, ans-step, ans+2*step].map(x=>clamp(x,0,999))).slice(0,4)
+        };
+      }
+      const a = rnd(0, max);
+      const b = rnd(0, max);
+      const prompt = `מי גדול יותר?`;
+      const answer = a === b ? "שווים" : (a > b ? a : b);
+      const choices = shuffle(["שווים", a, b, (a+b)%101]).slice(0,4);
+      return { 
+        kind:"mc", 
+        skill:"order", 
+        prompt: `${prompt}<div class="mt-3 text-3xl font-black text-white">${a} ? ${b}</div>`, 
+        answer, 
+        choices 
+      };
+    }
+
+    function genMult({ tables=[2,5,10], maxMul=10 }) {
+      const t = tables[rnd(0, tables.length-1)];
+      const n = rnd(0, maxMul);
+      const ans = t*n;
+      return { 
+        kind:"mc", 
+        skill:"mult", 
+        prompt:`${t} x ${n} = ?`, 
+        answer: ans, 
+        choices: genChoices(ans, 4, { spread: 12 }) 
+      };
+    }
+
+    function genWord({ kind="add", max=50 }) {
+      const a = rnd(2, Math.floor(max/2));
+      const b = rnd(2, Math.floor(max/2));
+      if (kind === "add") {
+        const ans = a+b;
+        const prompt = `ללביא יש ${a} קלפים. הוא קיבל עוד ${b} קלפים. כמה קלפים יש לו עכשיו?`;
+        return { kind:"mc", skill:"word", prompt, answer: ans, choices: genChoices(ans, 4, { spread: 8 }) };
+      } else {
+        const total = a+b;
+        const ans = total - b;
+        const prompt = `יש ${total} פוקדורים. לביא השתמש ב-${b}. כמה נשאר?`;
+        return { kind:"mc", skill:"word", prompt, answer: ans, choices: genChoices(ans, 4, { spread: 8 }) };
+      }
+    }
+
+    function genMixed(stage) {
+      const roll = Math.random();
+      if (roll < 0.28) return genAdd({ max: stage.difficulty.max || 100, carry: !!stage.difficulty.carry });
+      if (roll < 0.56) return genSub({ max: stage.difficulty.max || 100, borrow: !!stage.difficulty.borrow });
+      if (roll < 0.73) return genPlace({ range:[10,99], mode:"tens" });
+      if (roll < 0.88) return genMult({ tables: stage.difficulty.tables || [2,5,10], maxMul: 10 });
+      return genOrder({ max: stage.difficulty.max || 100, patterns: true });
+    }
+
+    function genChoices(ans, count=4, { spread=10, snap10=false } = {}) {
+      const set = new Set([ans]);
+      while (set.size < count) {
+        let delta = rnd(-spread, spread);
+        if (delta === 0) delta = 1;
+        let v = ans + delta;
+        if (snap10) v = Math.round(v/10)*10;
+        if (v < 0) v = 0;
+        if (v > 999) v = 999;
+        set.add(v);
+      }
+      return shuffle([...set]).slice(0,count);
+    }
+
+    function buildQueueForStage(stage) {
+      // 6 questions normal, 8 boss
+      const n = stage.type === "boss" ? 8 : 6;
+      const items = [];
+      for (let i=0;i<n;i++) {
+        if (stage.skill === "add") items.push(genAdd(stage.difficulty));
+        else if (stage.skill === "sub") items.push(genSub(stage.difficulty));
+        else if (stage.skill === "place") items.push(genPlace(stage.difficulty));
+        else if (stage.skill === "order") items.push(genOrder(stage.difficulty));
+        else if (stage.skill === "mult") items.push(genMult(stage.difficulty));
+        else if (stage.skill === "word") items.push(genWord(stage.difficulty));
+        else items.push(genMixed(stage));
+      }
+      return items;
+    }
+
+    // -----------------------------
+    // BOSS MECHANICS
+    // -----------------------------
+    function bossApplyMechanic(stage, question) {
+      if (!stageIsBoss(stage) || !stage.boss) return question;
+      
+      const mechId = stage.boss.id;
+      
+      // trick: shuffle choices heavily + include "close" answers
+      if (mechId === "trick") {
+        const ans = question.answer;
+        const close = shuffle([ans-1, ans+1, ans+10, ans-10].map(x=>clamp(x,0,999))).slice(0,2);
+        const pool = shuffle([...new Set([ans, ...question.choices, ...close])]).slice(0,4);
+        question.choices = shuffle(pool);
+      }
+
+      // similar: choices are very close
+      if (mechId === "similar") {
+        const ans = question.answer;
+        const pool = new Set([ans]);
+        while (pool.size < 4) pool.add(clamp(ans + rnd(-3,3) || ans+1, 0, 999));
+        question.choices = shuffle([...pool]);
+      }
+
+      // final: timer + mild shuffle
+      if (mechId === "final") {
+        question.choices = shuffle(question.choices);
+      }
+
+      return question;
+    }
+
+    function startBossTimerIfNeeded(stage) {
+      clearBossTimer();
+      if (!stageIsBoss(stage) || !stage.boss) return;
+      
+      // only final boss uses timer (soft)
+      if (stage.boss.id !== "final") return;
+
+      const container = document.getElementById("game-content");
+      if (!container) return;
+
+      const barWrap = document.createElement("div");
+      barWrap.className = "w-full max-w-md mt-6";
+      barWrap.innerHTML = `
+        <div class="text-xs text-slate-400 font-black mb-2">זמן</div>
+        <div class="h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-700 shadow-inner">
+          <div id="time-bar" class="h-full bg-gradient-to-r from-cyan-500 to-pink-500" style="width:100%"></div>
+        </div>
+      `;
+      container.appendChild(barWrap);
+
+      let ms = 9000;
+      const start = Date.now();
+      bossTimer = setInterval(()=>{
+        const t = Date.now() - start;
+        const left = clamp(1 - (t/ms), 0, 1);
+        const el = document.getElementById("time-bar");
+        if (el) el.style.width = `${left*100}%`;
+        if (t >= ms) {
+          clearBossTimer();
+          // time out = wrong
+          PokeMath.answer(false, "נגמר הזמן!");
+        }
+      }, 80);
+    }
+
+    function clearBossTimer() {
+      if (bossTimer) clearInterval(bossTimer);
+      bossTimer = null;
+    }
+
+    // -----------------------------
+    // CORE GAME
+    // -----------------------------
+    const PokeMath = {
+      init() {
+        load();
+        setHUD();
+        this.showHome();
+      },
+
+      // NAV
+      showHome() {
+        showTemplate("tpl-home");
+        setHUD();
+        
+        const prog = document.getElementById("home-progress");
+        const combo = document.getElementById("home-combo");
+        const tip = document.getElementById("home-tip");
+
+        const idx = stageIndexSafe();
+        if (prog) prog.textContent = `שלב ${idx+1} מתוך ${STAGES.length}`;
+        if (combo) combo.textContent = state.combo || 0;
+
+        // smart tip: based on weak areas inferred from mistakes is not tracked deeply, so keep dynamic by stage
+        const next = STAGES[idx];
+        const t = TYPES[next.skill] || TYPES.add;
+        if (tip) tip.textContent = `השלב הבא: ${next.title}. ${t.micro}`;
+
+        save();
+      },
+
+      showStarterSelect() {
+        showTemplate("tpl-starter");
+        setHUD();
+
+        const grid = document.getElementById("starter-grid");
+        const btn = document.getElementById("starter-confirm");
+        let picked = null;
+
+        const starterMons = STARTERS.map(id=>monById(id)).filter(Boolean);
+
+        grid.innerHTML = starterMons.map(m => `
+          <div class="card p-5 cursor-pointer hover:border-pink-400/60" onclick="PokeMath.pickStarter('${m.id}')">
+            <div class="flex items-start justify-between">
+              <div class="text-right">
+                <div class="tag inline-block mb-2">${TYPES[m.type].name}</div>
+                <div class="text-2xl font-black text-white">${m.name}</div>
+                <div class="text-slate-400 mt-2">${m.desc}</div>
+              </div>
+              <div class="text-6xl">${m.icon}</div>
+            </div>
+
+            <div class="mt-4 bg-slate-800/50 border border-slate-700 rounded-2xl p-4">
+              <div class="text-slate-400 text-xs font-black uppercase tracking-wider mb-1">בונוס</div>
+              <div class="text-slate-200 font-black">${PokeMath.bonusText(m.bonus)}</div>
+            </div>
+          </div>
+        `).join("");
+
+        this.pickStarter = (id) => {
+          picked = id;
+          document.querySelectorAll("#starter-grid .card").forEach(el=>el.classList.remove("border-red-500/70"));
+          // mark clicked card
+          // we don't have the element reference from here; quick: add border on all using contains check
+          document.querySelectorAll("#starter-grid .card").forEach(el=>{
+            if (el.innerText.includes(monById(id).name)) el.classList.add("border-red-500/70");
+          });
+          
+          btn.disabled = false;
+          btn.classList.remove("opacity-50","cursor-not-allowed");
+          btn.onclick = () => {
+            state.starterId = picked;
+            state.levelIdx = 0;
+            state.hp = state.maxHp = 100;
+            state.combo = 0;
+            state.hints = 0;
+            state.perStageFlags = {};
+            // keep inventory and coins as-is
+            if (!state.pokedex.includes(picked)) state.pokedex.push(picked); // starter appears in pokedex
+            save();
+            confetti({ particleCount: 120, spread: 75, origin: { y: 0.6 } });
+            this.showMap();
+          };
+        };
+      },
+
+      showMap() {
+        if (!state.starterId) {
+          this.showStarterSelect();
+          openModal({
+            icon:"🎒",
+            tag:"התחלה",
+            title:"צריך לבחור פוקימון",
+            body:`<div class="text-lg">בחר פוקימון התחלתי ואז נצא למסע.</div>`,
+            actions:[{ label:"הבנתי", primary:true, onClick:()=>closeModal() }]
+          });
+          return;
+        }
+
+        showTemplate("tpl-map");
+        setHUD();
+
+        const t = document.getElementById("map-title");
+        const s = document.getElementById("map-subtitle");
+        const icon = document.getElementById("map-starter-icon");
+        const nodes = document.getElementById("map-nodes");
+
+        const starter = starterMon();
+        if (t) t.textContent = `המסע של לביא עם ${starter.name}`;
+        if (s) s.textContent = `השלב הבא: ${STAGES[stageIndexSafe()].title}. תופסים פוקימונים בדרך ומתחזקים.`;
+        if (icon) icon.textContent = starter.icon;
+
+        nodes.innerHTML = STAGES.map((st, i)=>{
+          let status = "locked";
+          if (i < state.levelIdx) status = "completed";
+          else if (i === state.levelIdx) status = "current";
+          
+          const isBoss = st.type === "boss";
+          const icon = status === "completed" ? "✅" : (isBoss ? "👑" : "⚔️");
+          const conn = i>0 ? `<div class="connector ${status !== 'locked' ? 'active' : ''}"></div>` : "";
+          const click = status !== "locked" ? `onclick="PokeMath.openStage(${i})"` : "";
+          
+          return `
+            <div class="relative mb-16 flex flex-col items-center group">
+              ${conn}
+              <div class="map-node ${status}" ${click}>${icon}</div>
+              <div class="mt-4 text-center bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-700 backdrop-blur-sm ${status==='locked'?'opacity-50':'shadow-lg'}">
+                <div class="text-[10px] text-slate-400 font-black uppercase tracking-wider mb-1">שלב ${i+1}</div>
+                <div class="font-black text-slate-200 text-lg leading-none">${st.title}</div>
+                <div class="text-slate-400 text-sm mt-1">${TYPES[st.skill]?.name || "מעורב"}</div>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        save();
+      },
+
+      openStage(i) {
+        if (i > state.levelIdx) return;
+        currentStage = STAGES[i];
+        
+        const speaker = "ג'אקו";
+        const starter = starterMon();
+
+        const body = `
+          <div class="space-y-4">
+            <div class="card p-4">
+              <div class="text-slate-400 text-xs font-black uppercase tracking-wider mb-1">הסיפור</div>
+              <div class="text-lg text-slate-200 leading-relaxed">
+                "${speaker}: לביא, היום אנחנו מתאמנים על <span class="font-black text-white">${TYPES[currentStage.skill]?.name || "מעורב"}</span>. 
+                אם עושים רצף נכון - מתקדמים כמו מאמן אמיתי."
+              </div>
+            </div>
+
+            <div class="card p-4 border-r-4 border-red-500">
+              <div class="text-slate-400 text-xs font-black uppercase tracking-wider mb-1">המשימה</div>
+              <div class="text-xl font-black text-white">${currentStage.objective}</div>
+            </div>
+
+            <div class="card p-4">
+              <div class="text-slate-400 text-xs font-black uppercase tracking-wider mb-2">עזרה חכמה</div>
+              <div class="text-slate-200">
+                פוקימון פעיל: <span class="font-black text-white">${starter.name}</span> ${starter.icon} - ${starter.desc}
+              </div>
+            </div>
+          </div>
+        `;
+
+        openModal({
+          icon: currentStage.type==="boss" ? "👑" : "⚔️",
+          tag: currentStage.type==="boss" ? "בוס" : "שלב",
+          title: `שלב ${i+1}: ${currentStage.title}`,
+          body,
+          actions: [
+            { label:"יציאה", onClick:()=>closeModal() },
+            { label:"התחל", primary:true, onClick:()=>{ closeModal(); PokeMath.startStage(); } }
+          ]
+        });
+      },
+
+      startStage() {
+        showTemplate("tpl-game");
+        setHUD();
+
+        qQueue = buildQueueForStage(currentStage);
+        qIndex = 0;
+        mistakes = 0;
+        state.combo = state.combo || 0;
+        
+        // per stage flags reset
+        state.perStageFlags = {
+          noHpUsed: false,
+          halfDamageUsed: false,
+          twoChoiceUsed: false,
+          tensTableUsed: false,
+          numberLineUsed: false,
+          freeBossHintUsed: false
+        };
+
+        // boss init
+        if (stageIsBoss(currentStage)) {
+          bossMaxHp = currentStage.boss.hp;
+          bossHp = bossMaxHp;
+          document.getElementById("boss-hud").classList.remove("hidden");
+          document.getElementById("boss-name").textContent = currentStage.title;
+          document.getElementById("boss-bar").style.width = "100%";
+          document.getElementById("boss-mechanic").textContent = `מכאניקה: ${currentStage.boss.mech}`;
+        }
+
+        const stageIndicator = document.getElementById("game-stage-indicator");
+        stageIndicator.textContent = `שלב ${currentStage.idx}/${STAGES.length}`;
+
+        const tag = document.getElementById("game-skill-tag");
+        const obj = document.getElementById("game-objective");
+        const micro = document.getElementById("micro-tip");
+
+        const typ = TYPES[currentStage.skill] || { name:"מעורב", icon:"🧩", micro:"טיפ: עצור, תחשוב, ואז תענה." };
+        tag.textContent = `${typ.icon} ${typ.name}`;
+        obj.textContent = currentStage.objective;
+        micro.textContent = typ.micro;
+
+        // apply purchased hint for next stage only
+        // (we keep it as extra hint button count)
+        this.renderQuestion();
+        save();
+      },
+
+      renderQuestion() {
+        clearBossTimer();
+
+        const container = document.getElementById("game-content");
+        const fb = document.getElementById("feedback");
+        if (fb) fb.textContent = "";
+
+        if (qIndex >= qQueue.length) {
+          this.finishStage();
+          return;
+        }
+
+        let q = structuredClone(qQueue[qIndex]);
+        q = bossApplyMechanic(currentStage, q);
+        
+        // if "twoChoiceOnce" bonus exists and not used
+        q = this.applyTwoChoiceBonusIfNeeded(q);
+
+        const progress = `
+          <div class="w-full max-w-md mb-5">
+            <div class="flex justify-between text-xs text-slate-400 font-black">
+              <span>שאלה ${qIndex+1}/${qQueue.length}</span>
+              <span>טעויות: ${mistakes}</span>
+            </div>
+            <div class="h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-700 shadow-inner mt-2">
+              <div class="h-full bg-gradient-to-r from-cyan-500 to-pink-500" style="width:${((qIndex)/qQueue.length)*100}%"></div>
+            </div>
+          </div>
+        `;
+
+        const prompt = `
+          <div class="card p-6 w-full max-w-md text-center">
+            <div class="text-slate-400 text-sm font-black mb-3">ענה נכון כדי להתחזק</div>
+            <div class="text-3xl font-black text-white" dir="ltr">${q.prompt}</div>
+          </div>
+        `;
+
+        const choices = q.choices.map(c=>`
+          <button class="btn-ghost w-full py-4 text-xl font-black border border-slate-600 hover:border-red-400" 
+                  onclick="PokeMath.pickChoice(${JSON.stringify(c)}, ${JSON.stringify(q.answer)})">
+            ${c}
+          </button>
+        `).join("");
+
+        container.innerHTML = `
+          ${progress}
+          ${prompt}
+          <div class="w-full max-w-md mt-5 grid gap-3">
+            ${choices}
+          </div>
+        `;
+
+        // optional helper visuals (bonuses)
+        this.maybeShowHelperVisuals(q);
+
+        // start boss timer if needed
+        startBossTimerIfNeeded(currentStage);
+
+        save();
+      },
+
+      pickChoice(choice, answer) {
+        clearBossTimer();
+        const ok = (String(choice) === String(answer));
+        this.answer(ok);
+      },
+
+      answer(isCorrect, overrideMsg=null) {
+        clearBossTimer();
+
+        const fb = document.getElementById("feedback");
+        if (!fb) return;
+
+        if (isCorrect) {
+          state.combo = (state.combo || 0) + 1;
+          const comboBonus = (state.combo >= 3) ? 8 : 0;
+          
+          // base xp
+          let xpGain = 20 + comboBonus;
+          
+          // starter passive: xpBonusIfClean (applied at end if clean)
+          // so here only base
+
+          addXP(xpGain);
+          state.coins += 6;
+
+          // boss damage
+          if (stageIsBoss(currentStage)) {
+            const dmg = Math.ceil(bossMaxHp / qQueue.length);
+            bossHp = clamp(bossHp - dmg, 0, bossMaxHp);
+            document.getElementById("boss-bar").style.width = `${(bossHp/bossMaxHp)*100}%`;
+            if (bossHp <= 0) {
+              fb.textContent = "פגיעה מכרעת! 💥";
+              fb.className = "text-3xl font-black text-emerald-300 glow-good";
+              confetti({ particleCount: 140, spread: 90, origin: { y: 0.75 } });
+              setTimeout(()=>this.finishStage(), 900);
+              setHUD(); save(); return;
+            }
+          }
+
+          fb.textContent = overrideMsg || (state.combo >= 3 ? `קומבו ${state.combo}! 🔥` : "נכון! ✨");
+          fb.className = "text-3xl font-black text-emerald-300 glow-good";
+          
+          if (state.combo === 3 || state.combo === 5) confetti({ particleCount: 70, spread: 70, origin: { y: 0.8 } });
+
+          qIndex++;
+          setHUD();
+          save();
+          setTimeout(()=>this.renderQuestion(), 650);
+
+        } else {
+          mistakes++;
+          state.combo = 0;
+
+          // compute damage with starter bonus
+          let dmg = stageIsBoss(currentStage) ? 15 : 10;
+          
+          const starter = starterMon();
+          dmg = this.applyDamageMitigation(dmg, starter);
+
+          state.hp = clamp(state.hp - dmg, 0, state.maxHp);
+          setBodyShake();
+
+          fb.textContent = overrideMsg || "לא נכון... נסה שוב בראש. 😅";
+          fb.className = "text-3xl font-black text-red-400 glow-bad";
+
+          setHUD();
+          save();
+
+          if (state.hp <= 0) {
+            this.softFail();
+            return;
+          }
+
+          // In this design: after wrong, still advance but less xp pressure
+          qIndex++;
+          setTimeout(()=>this.renderQuestion(), 850);
+        }
+      },
+
+      applyDamageMitigation(dmg, starter) {
+        if (!starter) return dmg;
+        
+        const b = starter.bonus;
+
+        // noHpOnce: first mistake doesn't reduce hp
+        if (b.kind === "noHpOnce" && !state.perStageFlags.noHpUsed) {
+          state.perStageFlags.noHpUsed = true;
+          return 0;
+        }
+
+        // halfDamageOnce
+        if (b.kind === "halfDamageOnce" && !state.perStageFlags.halfDamageUsed) {
+          state.perStageFlags.halfDamageUsed = true;
+          return Math.ceil(dmg/2);
+        }
+
+        // boss hardhit increases damage only in boss "hardhit"
+        if (stageIsBoss(currentStage) && currentStage.boss?.id === "hardhit") {
+          dmg += 6;
+        }
+
+        return dmg;
+      },
+
+      applyTwoChoiceBonusIfNeeded(q) {
+        const starter = starterMon();
+        if (!starter) return q;
+
+        if (starter.bonus.kind === "twoChoiceOnce" && !state.perStageFlags.twoChoiceUsed) {
+          // reduce to 2 choices for one question
+          state.perStageFlags.twoChoiceUsed = true;
+          const ans = q.answer;
+          const other = q.choices.find(x => String(x) !== String(ans)) ?? q.choices[0];
+          q.choices = shuffle([ans, other]).slice(0,2);
+        }
+
+        return q;
+      },
+
+      maybeShowHelperVisuals(q) {
+        const starter = starterMon();
+        if (!starter) return;
+        
+        const container = document.getElementById("game-content");
+        if (!container) return;
+
+        // tens table
+        if (starter.bonus.kind === "tensTableOnce" && !state.perStageFlags.tensTableUsed) {
+          state.perStageFlags.tensTableUsed = true;
+          const box = document.createElement("div");
+          box.className = "w-full max-w-md mt-5 card p-4 text-right";
+          box.innerHTML = `
+            <div class="text-slate-400 text-xs font-black uppercase tracking-wider mb-2">טבלת עשרות</div>
+            <div class="grid grid-cols-5 gap-2 text-center font-black">
+              ${[0,10,20,30,40,50,60,70,80,90].map(n=>`<div class="bg-slate-800/60 border border-slate-700 rounded-xl py-2">${n}</div>`).join("")}
+            </div>
+          `;
+          container.appendChild(box);
+        }
+
+        // number line
+        if (starter.bonus.kind === "numberLineOnce" && !state.perStageFlags.numberLineUsed) {
+          state.perStageFlags.numberLineUsed = true;
+          const box = document.createElement("div");
+          box.className = "w-full max-w-md mt-5 card p-4 text-right";
+          const marks = [0,10,20,30,40,50,60,70,80,90,100];
+          box.innerHTML = `
+            <div class="text-slate-400 text-xs font-black uppercase tracking-wider mb-2">ציר מספרים</div>
+            <div class="relative h-12 bg-slate-950 rounded-2xl border border-slate-700 overflow-hidden">
+              <div class="absolute left-0 right-0 top-1/2 h-1 bg-slate-700"></div>
+              ${marks.map((m,i)=>`
+                <div class="absolute top-0 text-[10px] font-black text-slate-300" style="right:${(i/(marks.length-1))*100}%">
+                  <div class="w-0.5 h-6 bg-slate-500 mx-auto"></div>
+                  <div class="-translate-x-1/2">${m}</div>
+                </div>
+              `).join("")}
+            </div>
+          `;
+          container.appendChild(box);
+        }
+
+        // highlight digits (simple: show split tens/ones for add/sub)
+        if (starter.bonus.kind === "highlightDigits") {
+          if (q.skill === "add" || q.skill === "sub") {
+            const nums = (q.prompt.match(/\d+/g) || []).map(Number);
+            if (nums.length >= 2) {
+              const a = nums[0], b = nums[1];
+              const box = document.createElement("div");
+              box.className = "w-full max-w-md mt-5 card p-4 text-right";
+              box.innerHTML = `
+                <div class="text-slate-400 text-xs font-black uppercase tracking-wider mb-2">פירוק מספרים</div>
+                <div class="flex justify-between gap-3">
+                  <div class="flex-1 bg-slate-800/60 border border-slate-700 rounded-2xl p-3">
+                    <div class="text-slate-400 text-xs font-black mb-1">מספר 1</div>
+                    <div class="text-white font-black text-lg">${a} = <span class="text-cyan-300">${Math.floor(a/10)*10}</span> + <span class="text-pink-300">${a%10}</span></div>
+                  </div>
+                  <div class="flex-1 bg-slate-800/60 border border-slate-700 rounded-2xl p-3">
+                    <div class="text-slate-400 text-xs font-black mb-1">מספר 2</div>
+                    <div class="text-white font-black text-lg">${b} = <span class="text-cyan-300">${Math.floor(b/10)*10}</span> + <span class="text-pink-300">${b%10}</span></div>
+                  </div>
+                </div>
+              `;
+              container.appendChild(box);
+            }
+          }
+        }
+      },
+
+      softFail() {
+        openModal({
+          icon:"🧪",
+          tag:"ניסיון חוזר",
+          title:"נגמר הכוח",
+          body:`<div class="text-lg text-slate-200">
+            לא נורא. חוזרים למפה ומנסים שוב כשמרגישים מוכנים.
+            <div class="mt-3 text-slate-400 text-sm">טיפ: בפעם הבאה, תעצור ותפרק לעשרות ויחידות.</div>
+          </div>`,
+          actions:[
+            { label:"חזרה למפה", primary:true, onClick:()=>{ closeModal(); state.hp = state.maxHp; save(); PokeMath.showMap(); } }
+          ]
+        });
+      },
+
+      finishStage() {
+        clearBossTimer();
+
+        // if stage had "xpBonusIfClean" and mistakes <= 1
+        const starter = starterMon();
+        if (starter && starter.bonus.kind === "xpBonusIfClean" && mistakes <= 1) {
+          addXP(starter.bonus.value);
+        }
+
+        // mark stage complete and reward
+        const stageNumber = currentStage.idx;
+        
+        // If there is a capture target on this stage and we have balls, go to capture
+        if (currentStage.capture && state.balls > 0 && !state.pokedex.includes(currentStage.capture)) {
+          this.startCapture(currentStage.capture, stageNumber);
+          return;
+        }
+
+        // Normal reward
+        this.showReward(stageNumber);
+      },
+
+      showReward(stageNumber) {
+        showTemplate("tpl-reward");
+        setHUD();
+
+        const summary = document.getElementById("reward-summary");
+        if (summary) {
+          const got = `קיבלת +${18} XP, +${20} מטבעות`;
+          summary.textContent = `${got}. בחר פרס אחד:`;
+        }
+
+        // base gains for clearing stage
+        addXP(18);
+        state.coins += 20;
+
+        const opts = [
+          { id:"potion", icon:"🧪", title:"שיקוי", desc:"+1 שיקוי (מחזיר 25 כוח)", apply:()=>state.potions++ },
+          { id:"ball", icon:"🟠", title:"כדור", desc:"+1 כדור (לתפיסות)", apply:()=>state.balls++ },
+          { id:"coins", icon:"🪙", title:"מטבעות", desc:"+35 מטבעות", apply:()=>state.coins += 35 },
+          { id:"hp", icon:"❤️", title:"ריפוי", desc:"מחזיר 30 כוח", apply:()=>state.hp = clamp(state.hp + 30, 0, state.maxHp) }
+        ];
+
+        // if starter has approx, add special reward option
+        if (starterMon()?.bonus.kind === "approx") {
+          opts.push({ id:"hint", icon:"💡", title:"רמז חכם", desc:"+1 רמז לשלב הבא", apply:()=>state.hints++ });
+        }
+
+        const box = document.getElementById("reward-options");
+        box.innerHTML = shuffle(opts).slice(0,3).map(o=>`
+          <button class="card p-5 text-right hover:border-red-400/60" onclick="PokeMath.pickReward('${o.id}')">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-xl font-black text-white">${o.title}</div>
+                <div class="text-slate-400 mt-1">${o.desc}</div>
+              </div>
+              <div class="text-4xl">${o.icon}</div>
+            </div>
+          </button>
+        `).join("");
+
+        // store choices
+        this._rewardPool = opts;
+
+        save();
+      },
+
+      pickReward(id) {
+        const o = (this._rewardPool || []).find(x=>x.id===id);
+        if (o) o.apply();
+
+        confettiBurst();
+
+        // advance stage
+        if (state.levelIdx < STAGES.length-1) {
+          state.levelIdx++;
+          // heal a little between stages
+          state.hp = clamp(state.hp + 10, 0, state.maxHp);
+          save();
+          setHUD();
+
+          // stage 20 completion
+          if (state.levelIdx >= STAGES.length) state.levelIdx = STAGES.length-1;
+
+          // if just finished stage 20
+          if (currentStage && currentStage.idx === 20) {
+            this.showEnd();
+            return;
+          }
+
+          setTimeout(()=>this.showMap(), 650);
+        } else {
+          this.showEnd();
+        }
+      },
+
+      showEnd() {
+        showTemplate("tpl-victory");
+        setHUD();
+        document.getElementById("end-xp").textContent = state.xp;
+        document.getElementById("end-coins").textContent = state.coins;
+        document.getElementById("end-mon").textContent = new Set(state.pokedex).size;
+        save();
+      },
+
+      // CAPTURE
+      startCapture(monId, stageNumber) {
+        showTemplate("tpl-capture");
+        setHUD();
+
+        const m = monById(monId);
+        const needed = stageNumber <= 4 ? 3 : (stageNumber <= 12 ? 4 : 5);
+
+        capture = {
+          monId,
+          needed,
+          streak: 0,
+          tries: 0,
+          // capture uses the mon's type questions
+          type: m.type
+        };
+
+        document.getElementById("cap-type").textContent = `${TYPES[m.type].icon} ${TYPES[m.type].name}`;
+        document.getElementById("cap-name").textContent = m.name;
+        document.getElementById("cap-desc").textContent = m.desc;
+        document.getElementById("cap-icon").textContent = m.icon;
+        document.getElementById("cap-needed").textContent = needed;
+        document.getElementById("cap-streak").textContent = 0;
+        document.getElementById("cap-balls").textContent = state.balls;
+
+        this.renderCaptureQuestion();
+      },
+
+      renderCaptureQuestion() {
+        const box = document.getElementById("cap-game");
+        if (!box) return;
+
+        if (!capture) return;
+
+        // if no balls, abort
+        if (state.balls <= 0) {
+          openModal({
+            icon:"🟠",
+            tag:"אין כדורים",
+            title:"נגמרו הכדורים",
+            body:`<div class="text-lg">תוכל לקנות עוד בחנות ג'אקו.</div>`,
+            actions:[{ label:"לחנות", primary:true, onClick:()=>{ closeModal(); PokeMath.showShop(); } }]
+          });
+          return;
+        }
+
+        // generate question based on capture type
+        let q;
+        if (capture.type === "add") q = genAdd({ max: 100, carry: Math.random()>0.5 });
+        else if (capture.type === "sub") q = genSub({ max: 100, borrow: Math.random()>0.5 });
+        else if (capture.type === "mult") q = genMult({ tables:[2,5,10,3,4].filter(x=>x<=10), maxMul:10 });
+        else if (capture.type === "place") q = genPlace({ range:[10,99], mode: Math.random()>0.6 ? "hundreds" : "tens" });
+        else if (capture.type === "order") q = genOrder({ max:100, patterns:true });
+        else q = genWord({ kind: Math.random()>0.5 ? "add":"sub", max:50 });
+
+        const choices = q.choices.map(c=>`
+          <button class="btn-ghost w-full py-4 text-xl font-black border border-slate-600 hover:border-red-400" 
+                  onclick="PokeMath.answerCapture(${JSON.stringify(c)}, ${JSON.stringify(q.answer)})">
+            ${c}
+          </button>
+        `).join("");
+
+        box.innerHTML = `
+          <div class="text-slate-400 text-sm font-black mb-3">כדור נזרק רק אם יש רצף נכון</div>
+          <div class="card p-5 text-center mb-4">
+            <div class="text-3xl font-black text-white" dir="ltr">${q.prompt}</div>
+          </div>
+          <div class="grid gap-3">${choices}</div>
+        `;
+      },
+
+      answerCapture(choice, answer) {
+        if (!capture) return;
+
+        const ok = (String(choice) === String(answer));
+        capture.tries++;
+
+        if (ok) {
+          capture.streak++;
+          document.getElementById("cap-streak").textContent = capture.streak;
+
+          // soft confetti
+          confetti({ particleCount: 55, spread: 65, origin: { y: 0.8 } });
+
+          if (capture.streak >= capture.needed) {
+            // spend 1 ball for successful capture
+            state.balls = Math.max(0, state.balls - 1);
+
+            const m = monById(capture.monId);
+            if (!state.pokedex.includes(m.id)) state.pokedex.push(m.id);
+            
+            addXP(35);
+            state.coins += 25;
+
+            openModal({
+              icon:"🟠",
+              tag:"תפיסה",
+              title:`תפסת את ${m.name}!`,
+              body:`<div class="text-lg text-slate-200">
+                ${m.icon} נוסף לפוקידקס.<br>
+                <span class="text-slate-400">בונוס:</span> <span class="font-black text-white">${PokeMath.bonusText(m.bonus)}</span>
+              </div>`,
+              actions:[
+                { label:"המשך לפרס", primary:true, onClick:()=>{ closeModal(); capture=null; PokeMath.showReward(currentStage.idx); } }
+              ]
+            });
+            setHUD();
+            save();
+            return;
+          }
+
+        } else {
+          capture.streak = 0;
+          document.getElementById("cap-streak").textContent = 0;
+          setBodyShake();
+        }
+
+        setHUD();
+        save();
+        setTimeout(()=>this.renderCaptureQuestion(), 650);
+      },
+
+      skipCapture() {
+        capture = null;
+        this.showReward(currentStage.idx);
+      },
+
+      // ITEMS
+      usePotion() {
+        if (state.potions <= 0) {
+          this.toast("אין שיקויים 😅", "bad");
+          return;
+        }
+        state.potions--;
+        state.hp = clamp(state.hp + 25, 0, state.maxHp);
+        setHUD(); save();
+        this.toast("שיקוי! +25 כוח 🧪", "good");
+      },
+
+      usePotionFromMap() {
+        if (state.potions <= 0) {
+          openModal({
+            icon:"🧪",
+            tag:"אין שיקויים",
+            title:"נגמרו השיקויים",
+            body:`<div class="text-lg">אפשר לקנות בחנות ג'אקו.</div>`,
+            actions:[
+              { label:"לחנות", primary:true, onClick:()=>{ closeModal(); PokeMath.showShop(); } },
+              { label:"סגור", onClick:()=>closeModal() }
+            ]
+          });
+          return;
+        }
+        state.potions--;
+        state.hp = clamp(state.hp + 25, 0, state.maxHp);
+        setHUD(); save();
+        openModal({
+          icon:"🧪",
+          tag:"ריפוי",
+          title:"השתמשת בשיקוי",
+          body:`<div class="text-lg">חזרת ל-${state.hp}/${state.maxHp} כוח.</div>`,
+          actions:[{ label:"יאללה", primary:true, onClick:()=>closeModal() }]
+        });
+      },
+
+      useHint() {
+        // hint sources:
+        // - purchased hints (state.hints)
+        // - starter freeBossHint for boss
+        // - starter approx or decomposeHint (always available once per stage)
+        const st = currentStage;
+        const starter = starterMon();
+
+        // free boss hint
+        if (stageIsBoss(st) && starter?.bonus.kind === "freeBossHint" && !state.perStageFlags.freeBossHintUsed) {
+          state.perStageFlags.freeBossHintUsed = true;
+          this.showSmartHint();
+          return;
+        }
+
+        if (state.hints > 0) {
+          state.hints--;
+          save();
+          this.showSmartHint();
+          return;
+        }
+
+        // starter native hint
+        if (starter && (starter.bonus.kind === "approx" || starter.bonus.kind === "decomposeHint")) {
+          // allow one hint per stage via these bonuses
+          if (!state.perStageFlags.nativeHintUsed) {
+            state.perStageFlags.nativeHintUsed = true;
+            this.showSmartHint();
+            return;
+          }
+        }
+
+        this.toast("אין רמזים כרגע. אפשר לקנות בחנות.", "bad");
+      },
+
+      showSmartHint() {
+        // derive hint from current prompt numbers
+        const q = qQueue[qIndex] ? structuredClone(qQueue[qIndex]) : null;
+        if (!q) return;
+
+        const nums = (q.prompt.match(/\d+/g) || []).map(Number);
+        let hint = "תחשוב על עשרות ויחידות.";
+
+        if (q.skill === "add" && nums.length >= 2) {
+          const a=nums[0], b=nums[1];
+          const ao=a%10, bo=b%10;
+          if (ao+bo>=10) hint = `יש מעבר עשר. קודם: ${a}+${10-ao} ואז מוסיפים את השאר.`;
+          else hint = `בלי מעבר עשר. תוסיף עשרות ואז יחידות.`;
+        }
+        
+        if (q.skill === "sub" && nums.length >= 2) {
+          const a=nums[0], b=nums[1];
+          const ao=a%10, bo=b%10;
+          if (bo>ao) hint = `צריך פירוק. אפשר לחשוב: ${a}-${(10+bo-ao)} ואז להחזיר.`;
+          else hint = `בלי פירוק. חסר עשרות ואז יחידות.`;
+        }
+
+        if (q.skill === "mult" && nums.length >= 2) {
+          const a=nums[0], b=nums[1];
+          hint = `בדיקת היגיון: זה סביב ${a*(b-1)} עד ${a*(b+1)}.`;
+        }
+
+        if (q.skill === "place") {
+          hint = "עשרות זה כפול 10. מאות זה כפול 100.";
+        }
+
+        if (q.skill === "order") {
+          hint = "תסתכל קודם על העשרות (או מאות), ורק אחר כך על היחידות.";
+        }
+
+        if (q.skill === "word") {
+          hint = "סמן: מה יש בהתחלה? מה מצטרף או יורד? ואז עושים פעולה אחת.";
+        }
+
+        openModal({
+          icon:"💡",
+          tag:"רמז חכם",
+          title:"טיפ של ג'אקו",
+          body:`<div class="text-lg text-slate-200">${hint}</div>`,
+          actions:[{ label:"הבנתי", primary:true, onClick:()=>closeModal() }]
+        });
+        setHUD(); save();
+      },
+
+      toast(text, type) {
+        const fb = document.getElementById("feedback");
+        if (!fb) return;
+        fb.textContent = text;
+        fb.className = `text-3xl font-black ${type==="good" ? "text-emerald-300 glow-good" : "text-red-400 glow-bad"}`;
+        setTimeout(()=>{ fb.textContent=""; }, 950);
+      },
+
+      // POKEDEX
+      showPokedex() {
+        showTemplate("tpl-pokedex");
+        setHUD();
+
+        const grid = document.getElementById("pokedex-grid");
+        const owned = [...new Set(state.pokedex)].map(monById).filter(Boolean);
+
+        if (owned.length === 0) {
+          grid.innerHTML = `<div class="card p-6 text-center text-slate-300">עדיין אין פוקימונים. צא למסע ותפוס!</div>`;
+          return;
+        }
+
+        grid.innerHTML = owned.map(m=>{
+          const xp = state.monXp[m.id] || 0;
+          const evo = m.evo ? `מתפתח ב-${m.evo.atXp} XP` : "אבולוציה: אין";
+          return `
+            <div class="card p-5">
+              <div class="flex items-start justify-between">
+                <div class="text-right">
+                  <div class="tag inline-block mb-2">${TYPES[m.type].icon} ${TYPES[m.type].name}</div>
+                  <div class="text-2xl font-black text-white">${m.name}</div>
+                  <div class="text-slate-400 mt-2">${m.desc}</div>
+                </div>
+                <div class="text-6xl">${m.icon}</div>
+              </div>
+
+              <div class="mt-4 bg-slate-800/50 border border-slate-700 rounded-2xl p-4">
+                <div class="text-slate-400 text-xs font-black uppercase tracking-wider mb-1">בונוס</div>
+                <div class="text-slate-200 font-black">${PokeMath.bonusText(m.bonus)}</div>
+              </div>
+
+              <div class="mt-4 bg-slate-800/50 border border-slate-700 rounded-2xl p-4">
+                <div class="flex justify-between text-xs text-slate-400 font-black">
+                  <span>XP פוקימון</span><span>${xp}</span>
+                </div>
+                <div class="text-slate-500 text-xs mt-2">${evo}</div>
+                <div class="h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-700 shadow-inner mt-2">
+                  <div class="h-full bg-gradient-to-r from-cyan-500 to-pink-500" style="width:${m.evo ? clamp((xp/m.evo.atXp)*100,0,100) : 100}%"></div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        save();
+      },
+
+      // SHOP
+      showShop() {
+        showTemplate("tpl-shop");
+        setHUD();
+        document.getElementById("shop-coins").textContent = state.coins;
+        save();
+      },
+
+      buy(item) {
+        const prices = { potion:30, ball:20, hint:25 };
+        const cost = prices[item];
+        if (state.coins < cost) {
+          openModal({
+            icon:"🪙",
+            tag:"אין מספיק",
+            title:"חסר מטבעות",
+            body:`<div class="text-lg">צריך עוד ${cost - state.coins} מטבעות.</div>`,
+            actions:[{ label:"הבנתי", primary:true, onClick:()=>closeModal() }]
+          });
+          return;
+        }
+        state.coins -= cost;
+        if (item === "potion") state.potions++;
+        if (item === "ball") state.balls++;
+        if (item === "hint") state.hints++;
+
+        save();
+        setHUD();
+        document.getElementById("shop-coins").textContent = state.coins;
+        
+        openModal({
+          icon:"🛒",
+          tag:"קנייה",
+          title:"נרכש בהצלחה",
+          body:`<div class="text-lg">קנית ${item === "potion" ? "שיקוי" : item === "ball" ? "כדור" : "רמז"}.</div>`,
+          actions:[{ label:"סגור", primary:true, onClick:()=>closeModal() }]
+        });
+      },
+
+      // PROFILE / SETTINGS
+      showProfile() {
+        const starter = starterMon();
+        const stage = STAGES[stageIndexSafe()];
+        const owned = new Set(state.pokedex).size;
+
+        openModal({
+          icon:"👤",
+          tag:"פרופיל",
+          title:"פרופיל מאמן",
+          body:`
+            <div class="space-y-3 text-lg">
+              <div class="card p-4">
+                <div class="text-slate-400 text-xs font-black uppercase tracking-wider mb-2">פוקימון פעיל</div>
+                <div class="text-white font-black text-xl">${starter ? starter.name : "לא נבחר"} ${starter ? starter.icon : ""}</div>
+              </div>
+              <div class="card p-4">
+                <div class="text-slate-400 text-xs font-black uppercase tracking-wider mb-2">התקדמות</div>
+                <div class="text-white font-black">שלב ${state.levelIdx+1} מתוך ${STAGES.length}</div>
+                <div class="text-slate-300 mt-1">הבא: ${stage.title}</div>
+              </div>
+              <div class="card p-4">
+                <div class="text-slate-400 text-xs font-black uppercase tracking-wider mb-2">אוסף</div>
+                <div class="text-white font-black">${owned} פוקימונים בפוקידקס</div>
+              </div>
+            </div>
+          `,
+          actions:[
+            { label:"סגור", primary:true, onClick:()=>closeModal() }
+          ]
+        });
+      },
+
+      toggleSettings() {
+        openModal({
+          icon:"⚙️",
+          tag:"הגדרות",
+          title:"מה לעשות?",
+          body:`<div class="text-lg text-slate-200">
+            אפשר לאפס הכל או רק לחזור לבחירת פוקימון.
+          </div>`,
+          actions:[
+            { label:"בחר פוקימון מחדש", onClick:()=>{ closeModal(); PokeMath.changeStarter(); } },
+            { label:"איפוס מלא", primary:true, onClick:()=>{ closeModal(); PokeMath.resetAll(); } }
+          ]
+        });
+      },
+
+      changeStarter() {
+        state.starterId = null;
+        save();
+        setHUD();
+        this.showStarterSelect();
+      },
+
+      resetAll() {
+        localStorage.removeItem(SAVE_KEY);
+        state = {
+          starterId: null,
+          levelIdx: 0,
+          hp: 100,
+          maxHp: 100,
+          xp: 0,
+          coins: 60,
+          balls: 3,
+          potions: 2,
+          combo: 0,
+          hints: 0,
+          pokedex: [],
+          monXp: {},
+          perStageFlags: {}
+        };
+        setHUD();
+        this.showHome();
+      },
+
+      closeModal() { closeModal(); },
+
+      bonusText(b) {
+        if (!b) return "אין";
+        if (b.kind === "approx") return "רמז קרוב לתוצאה פעם בשלב";
+        if (b.kind === "noHpOnce") return "טעות ראשונה לא מורידה כוח בשלב";
+        if (b.kind === "halfDamageOnce") return "פעם בשלב נזק מחצי";
+        if (b.kind === "decomposeHint") return "פעם בשלב רמז פירוק לעשרות ויחידות";
+        if (b.kind === "xpBonusIfClean") return `+${b.value} XP אם יש עד טעות אחת בשלב`;
+        if (b.kind === "highlightDigits") return "מדגיש עשרות ויחידות כדי להבין";
+        if (b.kind === "twoChoiceOnce") return "פעם בשלב 2 אפשרויות בלבד";
+        if (b.kind === "tensTableOnce") return "פעם בשלב מציג טבלת עשרות";
+        if (b.kind === "numberLineOnce") return "פעם בשלב מציג ציר מספרים";
+        if (b.kind === "underlineAskOnce") return "פעם בשלב מדגיש 'מה שואלים'";
+        if (b.kind === "freeBossHint") return "רמז חינמי בבוס פעם אחת";
+        return "בונוס מיוחד";
+      }
+    };
+
+    window.addEventListener("load", () => {
+      PokeMath.init();
+    });
+  </script>
+</body>
+</html>
