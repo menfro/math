@@ -1853,19 +1853,69 @@
 
         const nums = (q.prompt.match(/\d+/g) || []).map(Number);
         let hint = "תחשוב על עשרות ויחידות.";
+        let visualHTML = ""; 
 
+        // Addition Logic
         if (q.skill === "add" && nums.length >= 2) {
-          const a=nums[0], b=nums[1];
-          const ao=a%10, bo=b%10;
-          if (ao+bo>=10) hint = `יש מעבר עשר. קודם: ${a}+${10-ao} ואז מוסיפים את השאר.`;
-          else hint = `בלי מעבר עשר. תוסיף עשרות ואז יחידות.`;
+          const a = nums[0], b = nums[1];
+          const ao = a % 10, bo = b % 10;
+          const at = Math.floor(a / 10), bt = Math.floor(b / 10);
+          
+          if (ao + bo >= 10) hint = `יש מעבר עשר. נסה לחבר קודם את העשרות ואז את היחידות.`;
+          else hint = `אין מעבר עשר. חבר עשרות לעשרות, יחידות ליחידות.`;
+
+          // Visual: Column Addition
+          visualHTML += this.renderColumnMethod(a, b, '+');
+          
+          // Visual: Decomposition
+          if (ao + bo >= 10) {
+             const need = 10 - ao;
+             if (b < 10) {
+                 // Bridge 10 method
+                 visualHTML += `<div class="mt-4 p-3 bg-slate-800 rounded-xl text-center">
+                    <div class="text-xs text-slate-400 mb-1">שיטת ההשלמה לעשרת</div>
+                    <div class="text-xl dir-ltr">
+                      ${a} + ${b} = ${a} + <span class="text-yellow-300">${need}</span> + <span class="text-pink-300">${b-need}</span> = <span class="text-cyan-300">${a+need}</span> + ${b-need} = ${a+b}
+                    </div>
+                 </div>`;
+             } else {
+                 // Split tens/ones
+                 visualHTML += `<div class="mt-4 p-3 bg-slate-800 rounded-xl text-center">
+                    <div class="text-xs text-slate-400 mb-1">חיבור בפירוק</div>
+                    <div class="text-lg dir-ltr">
+                      ${at*10} + ${bt*10} = <span class="text-cyan-300">${(at+bt)*10}</span> (עשרות)<br>
+                      ${ao} + ${bo} = <span class="text-pink-300">${ao+bo}</span> (יחידות)<br>
+                      ${(at+bt)*10} + ${ao+bo} = ${a+b}
+                    </div>
+                 </div>`;
+             }
+          }
         }
         
+        // Subtraction Logic
         if (q.skill === "sub" && nums.length >= 2) {
-          const a=nums[0], b=nums[1];
-          const ao=a%10, bo=b%10;
-          if (bo>ao) hint = `צריך פירוק. אפשר לחשוב: ${a}-${(10+bo-ao)} ואז להחזיר.`;
-          else hint = `בלי פירוק. חסר עשרות ואז יחידות.`;
+           const a = nums[0], b = nums[1];
+           const ao = a % 10, bo = b % 10;
+           
+           if (bo > ao) hint = `צריך פירוק (פריטה). לוקחים עשרת אחת והופכים אותה ליחידות.`;
+           else hint = `מחסרים יחידות מיחידות, עשרות מעשרות.`;
+
+           // Visual: Column Method
+           visualHTML += this.renderColumnMethod(a, b, '-');
+
+           // Visual: Decomposition for borrowing
+           if (bo > ao) {
+             visualHTML += `<div class="mt-4 p-3 bg-slate-800 rounded-xl text-center">
+                <div class="text-xs text-slate-400 mb-1">פירוק (פריטה)</div>
+                <div class="text-sm text-slate-300 mb-2">אי אפשר לחסר ${bo} מ-${ao}, אז לוקחים עשרת אחת.</div>
+                <div class="text-lg dir-ltr">
+                  ${a} - ${b}<br>
+                  10 - ${bo} = <span class="text-pink-300">${10-bo}</span> (מהעשרת שנלקחה)<br>
+                  ${10-bo} + ${ao} = <span class="text-cyan-300">${10-bo+ao}</span> (ביחד עם ה-${ao} שהיו)<br>
+                  ... ומורידים את העשרות של המספר השני.
+                </div>
+             </div>`;
+           }
         }
 
         if (q.skill === "mult" && nums.length >= 2) {
@@ -1888,11 +1938,29 @@
         openModal({
           icon:"💡",
           tag:"רמז חכם",
-          title:"טיפ של ג'אקו",
-          body:`<div class="text-lg text-slate-200">${hint}</div>`,
+          title:"איך פותרים?",
+          body:`<div class="text-lg text-slate-200">${hint}</div>${visualHTML}`,
           actions:[{ label:"הבנתי", primary:true, onClick:()=>closeModal() }]
         });
         setHUD(); save();
+      },
+
+      renderColumnMethod(a, b, op) {
+        const res = op === '+' ? a+b : a-b;
+        
+        return `
+        <div class="mt-4 p-4 bg-slate-800/80 rounded-xl flex flex-col items-center border border-slate-700">
+            <div class="text-xs text-slate-400 mb-2 font-black tracking-wider uppercase">פתרון במאונך</div>
+            <div class="font-mono text-3xl font-black text-white bg-slate-900 px-6 py-4 rounded-xl border-2 border-slate-700/50 shadow-inner" dir="ltr">
+                <div class="text-right tracking-[0.2em]">${a}</div>
+                <div class="text-right tracking-[0.2em] border-b-4 border-slate-600 pb-2 mb-2 relative">
+                    <span class="absolute left-[-24px] top-1 text-slate-500 font-sans">${op}</span>
+                    ${b}
+                </div>
+                <div class="text-right tracking-[0.2em] text-emerald-400">${res}</div>
+            </div>
+        </div>
+        `;
       },
 
       toast(text, type) {
@@ -2027,15 +2095,69 @@
         openModal({
           icon:"⚙️",
           tag:"הגדרות",
-          title:"מה לעשות?",
-          body:`<div class="text-lg text-slate-200">
-            אפשר לאפס הכל או רק לחזור לבחירת פוקימון.
-          </div>`,
+          title:"ניהול משחק",
+          body:`
+            <div class="grid grid-cols-2 gap-3 mb-4">
+               <button class="btn-ghost py-3 border-slate-600" onclick="PokeMath.exportSave()">📥 שמור לקובץ</button>
+               <button class="btn-ghost py-3 border-slate-600" onclick="PokeMath.triggerImport()">📤 טען מקובץ</button>
+            </div>
+            <div class="text-lg text-slate-200">
+              אפשרויות נוספות:
+            </div>
+          `,
           actions:[
             { label:"בחר פוקימון מחדש", onClick:()=>{ closeModal(); PokeMath.changeStarter(); } },
             { label:"איפוס מלא", primary:true, onClick:()=>{ closeModal(); PokeMath.resetAll(); } }
           ]
         });
+      },
+
+      exportSave() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href",     dataStr);
+        downloadAnchorNode.setAttribute("download", "pokemath_save_" + new Date().toISOString().slice(0,10) + ".json");
+        document.body.appendChild(downloadAnchorNode); // required for firefox
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+        this.closeModal();
+      },
+
+      triggerImport() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = e => {
+           const file = e.target.files[0];
+           if (!file) return;
+           const reader = new FileReader();
+           reader.onload = event => {
+             try {
+               const obj = JSON.parse(event.target.result);
+               // Basic validation: check if it has essential fields
+               if (obj && typeof obj.levelIdx !== 'undefined' && typeof obj.hp !== 'undefined') {
+                 state = obj;
+                 save();
+                 setHUD();
+                 this.showHome();
+                 this.closeModal();
+                 openModal({
+                    icon:"✅",
+                    tag:"הצלחה",
+                    title:"המשחק נטען",
+                    body:"השמירה נטענה בהצלחה מהקובץ.",
+                    actions:[{label:"מעולה", primary:true, onClick:()=>closeModal()}]
+                 });
+               } else {
+                 throw new Error("Invalid save format");
+               }
+             } catch (err) {
+               alert("שגיאה בטעינת הקובץ: לא תקין");
+             }
+           }
+           reader.readAsText(file);
+        }
+        input.click();
       },
 
       changeStarter() {
